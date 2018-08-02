@@ -1,7 +1,9 @@
 package com.christopherbare.mobileappinclass10;
 
+import android.graphics.Color;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
+import android.util.Log;
 
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -9,6 +11,8 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -28,58 +32,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private GoogleMap mMap;
 
-    InputStream is = getResources().openRawResource(R.raw.trip);
-    Writer writer = new StringWriter();
-    char[] buffer = new char[1024];
-    ArrayList<String> pointsArray = new ArrayList<>();
-
-
-    /**
-     *
-     *  //The JSON file in string format
-     String json = IOUtils.toString(connection.getInputStream(), "UTF-8");
-
-     //The entire JSON object
-     JSONObject root = new JSONObject(json);
-
-     //The array within the JSON object
-     JSONObject feed = root.getJSONObject("feed");
-
-     JSONArray resultApps = feed.getJSONArray("results");
-
-     genreArray = new ArrayList<>();
-
-     genreArray.add("All");
-
-     for (int i = 0; i < feed.length(); i++) {
-
-     //Initialize objects
-     app = new App();
-
-     //Get the JSON "App"
-     JSONObject appJSON = resultApps.getJSONObject(i);
-
-     //get the JSON "genres"
-     JSONArray genresJSON = appJSON.getJSONArray("genres");
-
-     //Set the fields for object from the JSON one
-     app.setName(appJSON.getString("name"));
-     app.setReleaseDate(appJSON.getString("releaseDate"));
-     app.setArtistName(appJSON.getString("artistName"));
-     app.setArtworkUrl100(appJSON.getString("artworkUrl100"));
-
-     String genreName;
-     //get genres
-     if (genresJSON != null) {
-     for (int j = 0; j < genresJSON.length(); j++) {
-     JSONObject genre = genresJSON.getJSONObject(j);
-     genreName = genre.getString("name");
-     app.addGenre(genreName);
-     if (!genreArray.contains(genreName))
-     genreArray.add(genreName);
-     }
-     }
-     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -89,40 +41,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
-
-        try {
-            Reader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
-            int n;
-            while ((n = reader.read(buffer)) != -1) {
-                writer.write(buffer, 0, n);
-            }
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                is.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        String json = writer.toString();
-
-        JSONObject root = null;
-        try {
-            root = new JSONObject(json);
-
-
-            JSONArray points = root.getJSONArray("points");
-
-
-
-
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
     }
 
 
@@ -138,12 +56,49 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
+        String json;
+        LatLng start = null;
+        LatLng end = null;
+        PolylineOptions options = null;
+
+        try {
+            InputStream inputStream = getResources().openRawResource(R.raw.trip);
+
+            int size = inputStream.available();
+
+            byte[] buffer = new byte[size];
+
+            inputStream.read(buffer);
+
+            inputStream.close();
+
+            json = new String(buffer, "UTF-8");
+
+            JSONObject root = new JSONObject(json);
+            JSONArray points = root.getJSONArray("points");
+
+            options = new PolylineOptions().width(5).color(Color.BLUE).geodesic(true);
+
+            for (int i = 0; i < points.length(); i++) {
+
+                double latitude = points.getJSONObject(i).getDouble("latitude");
+                double longitude = points.getJSONObject(i).getDouble("longitude");
+                LatLng point = new LatLng(latitude, longitude);
+                options.add(point);
+
+                if (i==0) start = point;
+                if (i==points.length()-1) end = point;
+            }
+        }
+        catch (IOException ex) { ex.printStackTrace(); Log.d("demo", "IOException"); }
+        catch (JSONException e) { e.printStackTrace(); Log.d("demo", "JSONException"); }
+
 
         // Add a marker in Sydney and move the camera
-//        LatLng sydney = new LatLng(-34, 151);
-//        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-//        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
-
+        mMap.addPolyline(options);
+        mMap.addMarker(new MarkerOptions().position(start).title("Start"));
+        mMap.addMarker(new MarkerOptions().position(end).title("End"));
+        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(start, 9));
 
 
     }
